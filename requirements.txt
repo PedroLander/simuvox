@@ -1,0 +1,6 @@
+numpy==2.3.1
+pillow==11.2.1
+py3d==0.1.90
+pyglut==1.0.0
+PyOpenGL==3.1.9
+PyOpenGL-accelerate==3.1.9
