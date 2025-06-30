@@ -1,6 +1,9 @@
-# voxels/representation.py
+"""
+Rendering logic for the voxel world simulation.
+Handles drawing of voxels and visible faces using OpenGL.
+"""
 from OpenGL.GL import *
-from .voxel import Voxel
+from world.voxel import Voxel
 
 FACE_DIRS = [
     ((1, 0, 0), 'right'),
@@ -34,6 +37,17 @@ FACE_VERTS = {
 }
 
 def get_visible_faces(voxel, voxels):
+    """
+    Returns a list of face names that are visible for a given voxel.
+    Only faces not adjacent to another voxel are considered visible.
+
+    Args:
+        voxel: The voxel object for which to determine visible faces.
+        voxels: The set of all voxels in the world, used to check adjacency.
+
+    Returns:
+        A list of strings, each representing a visible face ('right', 'left', 'top', 'bottom', 'front', 'back').
+    """
     faces = []
     x, y, z = voxel.x, voxel.y, voxel.z
     for (dx, dy, dz), name in FACE_DIRS:
@@ -43,15 +57,21 @@ def get_visible_faces(voxel, voxels):
     return faces
 
 def draw_voxel(voxel, voxels, wireframe_mode=None):
+    """
+    Draws a voxel's visible faces and edges using OpenGL.
+
+    Args:
+        voxel: Voxel object to draw.
+        voxels: Set of all voxels (for visibility check).
+        wireframe_mode: 'continuous' for continuous edge lines, None or other values for standard wireframe.
+    """
     faces = get_visible_faces(voxel, voxels)
     if not faces:
         return
     x, y, z = voxel.x, voxel.y, voxel.z
-    # Draw faces
     for face in faces:
         verts = [CUBE_VERTS[i] for i in FACE_VERTS[face]]
-        color = FACE_COLORS[face]
-        glColor3fv(color)
+        glColor3fv(FACE_COLORS[face])
         glBegin(GL_QUADS)
         for vx, vy, vz in verts:
             glVertex3f(x+vx, y+vy, z+vz)

@@ -4,54 +4,10 @@ from math import sin, cos, radians
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
-from voxels.terrain import Terrain
-from voxels.representation import draw_voxel
-import ctypes
-
-# --- Camera ---
-class Camera:
-    def __init__(self, grid_size):
-        self.x, self.y, self.z = grid_size/2, 2, grid_size*1.5
-        self.yaw, self.pitch = 0, 0
-        self.speed = 0.2
-    def get_direction(self):
-        # Returns the forward direction vector
-        rad_yaw = radians(self.yaw)
-        rad_pitch = radians(self.pitch)
-        dx = cos(rad_pitch) * sin(rad_yaw)
-        dy = sin(rad_pitch)
-        dz = -cos(rad_pitch) * cos(rad_yaw)
-        return dx, dy, dz
-    def get_right(self):
-        rad_yaw = radians(self.yaw)
-        rad_pitch = radians(self.pitch)
-        # Right vector is perpendicular to forward and up (y axis)
-        fx, fy, fz = self.get_direction()
-        upx, upy, upz = 0, 1, 0
-        # Cross product of forward and up gives right vector
-        rx = upy * fz - upz * fy
-        ry = upz * fx - upx * fz
-        rz = upx * fy - upy * fx
-        norm = (rx**2 + ry**2 + rz**2) ** 0.5
-        if norm == 0:
-            return 1, 0, 0  # fallback
-        return rx/norm, ry/norm, rz/norm
-    def move(self, forward, right, up):
-        # Move relative to camera orientation, including pitch for forward/back and left/right
-        dx, dy, dz = self.get_direction()
-        rx, ry, rz = self.get_right()
-        self.x += forward * dx * self.speed + right * rx * self.speed
-        self.y += forward * dy * self.speed + right * ry * self.speed + up * self.speed
-        self.z += forward * dz * self.speed + right * rz * self.speed
-    def rotate(self, dyaw, dpitch):
-        self.yaw = (self.yaw + dyaw) % 360
-        self.pitch = max(-89, min(89, self.pitch - dpitch))
-    def apply(self):
-        # Calculate look-at point
-        dx, dy, dz = self.get_direction()
-        gluLookAt(self.x, self.y, self.z, self.x+dx, self.y+dy, self.z+dz, 0, 1, 0)
-
-camera = None
+from camera import Camera
+from world import Terrain, Voxel
+from render import draw_voxel
+from processes import update_environment
 
 # --- OpenGL Callbacks ---
 def display():
@@ -113,6 +69,7 @@ def special(key, x, y):
 
 def timer(fps=60):
     update_movement()
+    update_environment(terrain.voxels, property_map)
     glutPostRedisplay()
     glutTimerFunc(int(1000/fps), lambda v=0: timer(fps), 0)
 
@@ -231,4 +188,9 @@ if __name__ == '__main__':
 
     terrain = Terrain(GRID_SIZE, VOXEL_COUNT)
     camera = Camera(GRID_SIZE)
+
+    property_map = {}
+    for v in terrain.get_voxels():
+        property_map[(v.x, v.y, v.z)] = {'humidity': 0.5, 'heat': 0.5, 'water': 0.5, 'nutrient': 0.5}
+
     main()
