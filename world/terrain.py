@@ -20,14 +20,18 @@ class Terrain:
         self.generate_surface()
 
     def generate_surface(self):
-        for x in range(10):
-            for z in range(10):
-                self.voxels.add(Voxel(x, 0, z))
-        for _ in range(30):
-            x = random.randint(0, 9)
-            z = random.randint(0, 9)
-            y = random.randint(1, 9)
-            self.voxels.add(Voxel(x, y, z))
+        grid = 10
+        min_soil = 2
+        max_soil = 4
+        # Fill each column from y=0 up to a random surface height (no floating blocks)
+        for x in range(grid):
+            for z in range(grid):
+                surface = random.randint(min_soil, max_soil)
+                for y in range(surface):
+                    self.voxels.add(Voxel(x, y, z))
+                # Optionally add a water, rock, or organic block above ground
+                if random.random() < 0.15:
+                    self.voxels.add(Voxel(x, surface, z))
 
     def get_voxels(self):
         return self.voxels

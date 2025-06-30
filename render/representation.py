@@ -57,7 +57,41 @@ def get_visible_faces(voxel, voxels):
             faces.append(name)
     return faces
 
-def draw_voxel(voxel, voxels, wireframe_mode=None):
+def get_voxel_color(voxel, property_map):
+    props = property_map.get((voxel.x, voxel.y, voxel.z), {})
+    vtype = props.get('type', 'soil')
+    humidity = props.get('humidity', 0.5)
+    water = props.get('water', 0.2)
+    minerals = props.get('minerals', 0.5)
+    organic = props.get('organic', 0.1)
+    # Dynamic color blending
+    if vtype == 'soil' or vtype == 'organic':
+        # Soil: brown, more organic = darker, more water = bluer, more minerals = lighter
+        base = [0.55, 0.27, 0.07]  # brown
+        # Blend: minerals lighten, organic darkens, water adds blue
+        r = base[0] * (1-organic) + 0.2*minerals
+        g = base[1] * (1-organic) + 0.3*minerals
+        b = base[2] * (1-organic) + 0.5*water + 0.1*minerals
+        # Clamp
+        color = [min(max(r,0),1), min(max(g,0),1), min(max(b,0),1)]
+    elif vtype == 'rock':
+        # Rock: gray, minerals lighten
+        base = [0.5, 0.5, 0.5]
+        r = base[0] + 0.3*minerals
+        g = base[1] + 0.3*minerals
+        b = base[2] + 0.3*minerals
+        color = [min(r,1), min(g,1), min(b,1)]
+    elif vtype == 'water':
+        # Water: blue, organic darkens, minerals add green
+        r = 0.1 + 0.1*minerals
+        g = 0.3 + 0.3*minerals
+        b = 0.7 + 0.2*water - 0.2*organic
+        color = [min(r,1), min(g,1), min(b,1)]
+    else:
+        color = [0.7, 0.7, 0.7]
+    return color
+
+def draw_voxel(voxel, voxels, wireframe_mode=None, property_map=None):
     """
     Draws a voxel's visible faces and edges using OpenGL.
 
@@ -65,6 +99,7 @@ def draw_voxel(voxel, voxels, wireframe_mode=None):
         voxel: Voxel object to draw.
         voxels: Set of all voxels (for visibility check).
         wireframe_mode: 'continuous' for continuous edge lines, None or other values for standard wireframe.
+        property_map: dict for coloring by composition.
     """
     faces = get_visible_faces(voxel, voxels)
     if not faces:
@@ -72,7 +107,10 @@ def draw_voxel(voxel, voxels, wireframe_mode=None):
     x, y, z = voxel.x, voxel.y, voxel.z
     for face in faces:
         verts = [CUBE_VERTS[i] for i in FACE_VERTS[face]]
-        glColor3fv(FACE_COLORS[face])
+        if property_map is not None:
+            glColor3fv(get_voxel_color(voxel, property_map))
+        else:
+            glColor3fv(FACE_COLORS[face])
         glBegin(GL_QUADS)
         for vx, vy, vz in verts:
             glVertex3f(x+vx, y+vy, z+vz)
