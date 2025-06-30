@@ -1,0 +1,6 @@
+[
+  {"id": "humus", "name": "Humus", "description": "Stable organic matter from decayed plant/animal material", "density": 1300, "color": [0.25, 0.15, 0.05]},
+  {"id": "plant_litter", "name": "Plant Litter", "description": "Freshly fallen plant debris", "density": 900, "color": [0.5, 0.35, 0.1]},
+  {"id": "root_biomass", "name": "Root Biomass", "description": "Living plant roots", "density": 1100, "color": [0.4, 0.3, 0.1]},
+  {"id": "microbial_biomass", "name": "Microbial Biomass", "description": "Living microorganisms in soil", "density": 1200, "color": [0.3, 0.2, 0.1]}
+]

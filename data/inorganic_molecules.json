@@ -1,0 +1,8 @@
+[
+  {"id": "water", "name": "Water", "formula": "H2O", "molar_mass": 18.015, "color": [0.2, 0.4, 1.0]},
+  {"id": "oxygen", "name": "Oxygen", "formula": "O2", "molar_mass": 32.00, "color": [0.7, 0.9, 1.0]},
+  {"id": "carbon_dioxide", "name": "Carbon Dioxide", "formula": "CO2", "molar_mass": 44.01, "color": [0.8, 0.8, 0.8]},
+  {"id": "ammonia", "name": "Ammonia", "formula": "NH3", "molar_mass": 17.03, "color": [0.8, 0.9, 1.0]},
+  {"id": "phosphate", "name": "Phosphate", "formula": "PO4^3-", "molar_mass": 94.97, "color": [0.9, 0.8, 0.6]},
+  {"id": "nitrite", "name": "Nitrite", "formula": "NO2^-", "molar_mass": 46.01, "color": [0.9, 0.7, 0.7]}
+]

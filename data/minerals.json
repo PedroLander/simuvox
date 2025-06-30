@@ -1,0 +1,6 @@
+[
+  {"id": "quartz", "name": "Quartz", "formula": "SiO2", "density": 2650, "color": [0.9, 0.9, 0.95]},
+  {"id": "feldspar", "name": "Feldspar", "formula": "KAlSi3O8", "density": 2570, "color": [0.95, 0.85, 0.7]},
+  {"id": "calcite", "name": "Calcite", "formula": "CaCO3", "density": 2710, "color": [0.95, 0.95, 0.85]},
+  {"id": "clay", "name": "Clay", "formula": "(Al,Si)2O5(OH)4", "density": 2600, "color": [0.7, 0.6, 0.5]}
+]

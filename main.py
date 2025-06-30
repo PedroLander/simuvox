@@ -11,12 +11,23 @@ from render import draw_voxel
 from render.representation import draw_voxel_wireframe, draw_highlighted_voxel, draw_crosshair, draw_text
 from processes import update_environment
 import time
+import json
+import os
 
 sim_time = 0.0
 last_frame_time = time.time()
 frame_count = 0
 fps_accum = 0.0
 real_fps = 0.0
+
+# Load minerals, inorganic molecules, and organic matter dictionaries from JSON files at startup.
+def load_json_data(filename):
+    with open(os.path.join(os.path.dirname(__file__), 'data', filename), 'r') as f:
+        return json.load(f)
+
+MINERALS = load_json_data('minerals.json')
+INORGANIC = load_json_data('inorganic_molecules.json')
+ORGANIC = load_json_data('organic_matter.json')
 
 # --- OpenGL Callbacks ---
 def display():
@@ -56,10 +67,23 @@ def display():
     # Draw voxel info at crosshair
     v = get_voxel_in_crosshair(camera, terrain.get_voxels())
     if v:
-        # Highlight the voxel under the crosshair
         draw_highlighted_voxel(v, size=1.0)
         props = property_map.get((v.x, v.y, v.z), {})
         mass = props.get('mass', 1.0)
+        # Show all composition details if present
+        comp_lines = []
+        if 'minerals_comp' in props:
+            comp_lines.append("Minerals:")
+            for m, frac in props['minerals_comp'].items():
+                comp_lines.append(f"  {m}: {frac:.2f}")
+        if 'inorganic_comp' in props:
+            comp_lines.append("Inorganic:")
+            for m, frac in props['inorganic_comp'].items():
+                comp_lines.append(f"  {m}: {frac:.2f}")
+        if 'organic_comp' in props:
+            comp_lines.append("Organic:")
+            for m, frac in props['organic_comp'].items():
+                comp_lines.append(f"  {m}: {frac:.2f}")
         info = (
             f"Voxel ({v.x},{v.y},{v.z})\n"
             f"Lat: {v.lat:.6f}°, Lon: {v.lon:.6f}°, H: {v.height:.2f}m\n"
@@ -67,9 +91,9 @@ def display():
             f"Water: {props.get('water',0):.2f} | Organic: {props.get('organic',0):.2f} | Minerals: {props.get('minerals',0):.2f}\n"
             f"Humidity: {props.get('humidity',0):.2f} | Heat: {props.get('heat',0):.2f} | Nutrient: {props.get('nutrient',0):.2f}"
         )
-        for i, line in enumerate(info.split('\n')):
+        lines = info.split('\n') + comp_lines
+        for i, line in enumerate(lines):
             draw_text(-0.98, 0.95 - i*0.07, line)
-    # Show simulation units and time
     draw_text(-0.98, -0.98, f"Time: {sim_time:.2f}s | Voxel: 1m³ | Time step: 0.05s | FPS: {real_fps:.1f}")
     glutSwapBuffers()
 
@@ -261,6 +285,26 @@ if __name__ == '__main__':
             organic = 0.1 + 0.2*random.random()
             water = 0.2 + 0.2*random.random()
         humidity = water
+        # Logical composition assignment
+        # Minerals: random fractions, sum to minerals
+        mineral_ids = [m['id'] for m in MINERALS]
+        mineral_fracs = [random.random() for _ in mineral_ids]
+        mineral_sum = sum(mineral_fracs)
+        minerals_comp = {mid: minerals * (f/mineral_sum) for mid, f in zip(mineral_ids, mineral_fracs)}
+        # Inorganic: always water, plus random others, sum to (1-minerals-organic)
+        inorg_ids = [m['id'] for m in INORGANIC]
+        inorg_fracs = [random.random() for _ in inorg_ids]
+        inorg_sum = sum(inorg_fracs)
+        inorg_total = max(0.0, 1.0 - minerals - organic)
+        inorganic_comp = {iid: inorg_total * (f/inorg_sum) for iid, f in zip(inorg_ids, inorg_fracs)}
+        # Set water to match water property
+        if 'water' in inorganic_comp:
+            inorganic_comp['water'] = water
+        # Organic: random fractions, sum to organic
+        org_ids = [m['id'] for m in ORGANIC]
+        org_fracs = [random.random() for _ in org_ids]
+        org_sum = sum(org_fracs)
+        organic_comp = {oid: organic * (f/org_sum) for oid, f in zip(org_ids, org_fracs)}
         props = {
             'humidity': humidity,
             'heat': 0.5,
@@ -268,7 +312,10 @@ if __name__ == '__main__':
             'nutrient': 0.5,
             'type': vtype,
             'minerals': minerals,
-            'organic': organic
+            'organic': organic,
+            'minerals_comp': minerals_comp,
+            'inorganic_comp': inorganic_comp,
+            'organic_comp': organic_comp
         }
         props['mass'] = get_voxel_mass(props)
         property_map[(v.x, v.y, v.z)] = props
