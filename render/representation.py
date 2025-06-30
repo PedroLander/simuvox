@@ -3,6 +3,7 @@ Rendering logic for the voxel world simulation.
 Handles drawing of voxels and visible faces using OpenGL.
 """
 from OpenGL.GL import *
+from OpenGL.GLUT import glutBitmapCharacter, GLUT_BITMAP_HELVETICA_18
 from world.voxel import Voxel
 
 FACE_DIRS = [
@@ -103,3 +104,82 @@ def draw_voxel(voxel, voxels, wireframe_mode=None):
             for vx, vy, vz in verts:
                 glVertex3f(x+vx, y+vy, z+vz)
             glEnd()
+
+def draw_voxel_wireframe(voxel, size=1.0, color=(1,1,0), linewidth=4):
+    """
+    Draws a wireframe box matching the voxel's position and size (min corner at x,y,z).
+    """
+    x, y, z = voxel.x, voxel.y, voxel.z
+    corners = [
+        (x, y, z), (x+size, y, z), (x+size, y+size, z), (x, y+size, z),
+        (x, y, z+size), (x+size, y, z+size), (x+size, y+size, z+size), (x, y+size, z+size)
+    ]
+    edges = [
+        (0,1),(1,2),(2,3),(3,0), # bottom
+        (4,5),(5,6),(6,7),(7,4), # top
+        (0,4),(1,5),(2,6),(3,7)  # sides
+    ]
+    glPushAttrib(GL_ENABLE_BIT | GL_LINE_BIT)
+    glDisable(GL_LIGHTING)
+    glColor3f(*color)
+    glLineWidth(linewidth)
+    glBegin(GL_LINES)
+    for a, b in edges:
+        glVertex3f(*corners[a])
+        glVertex3f(*corners[b])
+    glEnd()
+    glLineWidth(1)
+    glPopAttrib()
+
+def draw_highlighted_voxel(voxel, size=1.0):
+    """
+    Draws a thick yellow wireframe box around the given voxel, matching the solid voxel exactly.
+    """
+    draw_voxel_wireframe(voxel, size=size, color=(1,1,0), linewidth=4)
+
+def draw_crosshair():
+    # Draw a + in the center of the screen
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    glOrtho(-1, 1, -1, 1, -1, 1)
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+    glDisable(GL_DEPTH_TEST)
+    glColor3f(0,0,0)
+    glLineWidth(2)
+    glBegin(GL_LINES)
+    glVertex2f(-0.025, 0)
+    glVertex2f(0.025, 0)
+    glVertex2f(0, -0.03)
+    glVertex2f(0, 0.03)
+    glEnd()
+    glLineWidth(1)
+    glEnable(GL_DEPTH_TEST)
+    glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
+
+def draw_text(x, y, text):
+    """
+    Draws text at normalized device coordinates (x, y) in [-1, 1].
+    """
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    glOrtho(-1, 1, -1, 1, -1, 1)
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+    glDisable(GL_DEPTH_TEST)
+    glColor3f(0,0,0)
+    glRasterPos2f(x, y)
+    for ch in text:
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(ch))
+    glEnable(GL_DEPTH_TEST)
+    glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)

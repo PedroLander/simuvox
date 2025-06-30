@@ -6,7 +6,9 @@ from OpenGL.GLU import *
 from OpenGL.GLUT import *
 from camera import Camera
 from world import Terrain, Voxel
+from world.utils import get_voxel_in_crosshair
 from render import draw_voxel
+from render.representation import draw_voxel_wireframe, draw_highlighted_voxel, draw_crosshair, draw_text
 from processes import update_environment
 
 # --- OpenGL Callbacks ---
@@ -34,6 +36,15 @@ def display():
         draw_voxel(voxel, terrain.get_voxels(), wireframe_mode='continuous')
     # Draw crosshair
     draw_crosshair()
+    # Draw voxel info at crosshair
+    v = get_voxel_in_crosshair(camera, terrain.get_voxels())
+    if v:
+        # Highlight the voxel under the crosshair
+        draw_highlighted_voxel(v, size=1.0)
+        props = property_map.get((v.x, v.y, v.z), {})
+        info = f"Voxel ({v.x},{v.y},{v.z})\nH:{props.get('humidity',0):.2f} T:{props.get('heat',0):.2f} W:{props.get('water',0):.2f} N:{props.get('nutrient',0):.2f}"
+        for i, line in enumerate(info.split('\n')):
+            draw_text(-0.98, 0.95 - i*0.07, line)
     glutSwapBuffers()
 
 def reshape(w, h):
@@ -78,31 +89,6 @@ def init():
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_CULL_FACE)
     glCullFace(GL_BACK)
-
-def draw_crosshair():
-    # Draw a + in the center of the screen
-    glMatrixMode(GL_PROJECTION)
-    glPushMatrix()
-    glLoadIdentity()
-    glOrtho(-1, 1, -1, 1, -1, 1)
-    glMatrixMode(GL_MODELVIEW)
-    glPushMatrix()
-    glLoadIdentity()
-    glDisable(GL_DEPTH_TEST)
-    glColor3f(0,0,0)
-    glLineWidth(2)
-    glBegin(GL_LINES)
-    glVertex2f(-0.03, 0)
-    glVertex2f(0.03, 0)
-    glVertex2f(0, -0.03)
-    glVertex2f(0, 0.03)
-    glEnd()
-    glLineWidth(1)
-    glEnable(GL_DEPTH_TEST)
-    glPopMatrix()
-    glMatrixMode(GL_PROJECTION)
-    glPopMatrix()
-    glMatrixMode(GL_MODELVIEW)
 
 def main():
     glutInit(sys.argv)
