@@ -1,224 +1,3 @@
-import sys
-import random
-from math import sin, cos, radians
-from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GLUT import *
-from camera import Camera
-from world import Terrain, Voxel
-from world.utils import get_voxel_in_crosshair
-from render import draw_voxel
-from render.representation import draw_voxel_wireframe, draw_highlighted_voxel, draw_crosshair, draw_text
-from processes import update_environment
-import time
-import json
-import os
-
-sim_time = 0.0
-last_frame_time = time.time()
-frame_count = 0
-fps_accum = 0.0
-real_fps = 0.0
-
-# Load minerals, inorganic molecules, and organic matter dictionaries from JSON files at startup.
-def load_json_data(filename):
-    with open(os.path.join(os.path.dirname(__file__), 'data', filename), 'r') as f:
-        return json.load(f)
-
-MINERALS = load_json_data('minerals.json')
-INORGANIC = load_json_data('inorganic_molecules.json')
-ORGANIC = load_json_data('organic_matter.json')
-
-# --- OpenGL Callbacks ---
-def display():
-    global sim_time, last_frame_time, frame_count, fps_accum, real_fps
-    now = time.time()
-    dt = now - last_frame_time
-    last_frame_time = now
-    frame_count += 1
-    fps_accum += 1.0 / max(dt, 1e-6)
-    if frame_count >= 10:
-        real_fps = fps_accum / frame_count
-        frame_count = 0
-        fps_accum = 0.0
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-    camera.apply()
-    glEnable(GL_DEPTH_TEST)
-    # Draw axes
-    glLineWidth(3)
-    glBegin(GL_LINES)
-    glColor3f(1,0,0)  # X axis (red)
-    glVertex3f(0,0,0)
-    glVertex3f(5,0,0)
-    glColor3f(0,1,0)  # Y axis (green)
-    glVertex3f(0,0,0)
-    glVertex3f(0,5,0)
-    glColor3f(0,0,1)  # Z axis (blue)
-    glVertex3f(0,0,0)
-    glVertex3f(0,0,5)
-    glEnd()
-    glLineWidth(1)
-    # Draw voxels
-    for voxel in terrain.get_voxels():
-        draw_voxel(voxel, terrain.get_voxels(), wireframe_mode='continuous', property_map=property_map)
-    # Draw crosshair
-    draw_crosshair()
-    # Draw voxel info at crosshair
-    v = get_voxel_in_crosshair(camera, terrain.get_voxels())
-    if v:
-        draw_highlighted_voxel(v, size=1.0)
-        props = property_map.get((v.x, v.y, v.z), {})
-        mass = props.get('mass', 1.0)
-        # Show all composition details if present
-        comp_lines = []
-        if 'minerals_comp' in props:
-            comp_lines.append("Minerals:")
-            for m, frac in props['minerals_comp'].items():
-                comp_lines.append(f"  {m}: {frac:.2f}")
-        if 'inorganic_comp' in props:
-            comp_lines.append("Inorganic:")
-            for m, frac in props['inorganic_comp'].items():
-                comp_lines.append(f"  {m}: {frac:.2f}")
-        if 'organic_comp' in props:
-            comp_lines.append("Organic:")
-            for m, frac in props['organic_comp'].items():
-                comp_lines.append(f"  {m}: {frac:.2f}")
-        info = (
-            f"Voxel ({v.x},{v.y},{v.z})\n"
-            f"Lat: {v.lat:.6f}°, Lon: {v.lon:.6f}°, H: {v.height:.2f}m\n"
-            f"Type: {props.get('type','soil')} | Mass: {mass:.2f} kg\n"
-            f"Water: {props.get('water',0):.2f} | Organic: {props.get('organic',0):.2f} | Minerals: {props.get('minerals',0):.2f}\n"
-            f"Humidity: {props.get('humidity',0):.2f} | Heat: {props.get('heat',0):.2f} | Nutrient: {props.get('nutrient',0):.2f}"
-        )
-        lines = info.split('\n') + comp_lines
-        for i, line in enumerate(lines):
-            draw_text(-0.98, 0.95 - i*0.07, line)
-    draw_text(-0.98, -0.98, f"Time: {sim_time:.2f}s | Voxel: 1m³ | Time step: 0.05s | FPS: {real_fps:.1f}")
-    glutSwapBuffers()
-
-def reshape(w, h):
-    glViewport(0, 0, w, h)
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    gluPerspective(60, w/float(h or 1), 0.1, 100.0)
-    glMatrixMode(GL_MODELVIEW)
-
-def keyboard(key, x, y):
-    key = key.decode('utf-8').lower()
-    forward = right = up = 0
-    if key == 'w':
-        forward = 1
-    elif key == 's':
-        forward = -1
-    elif key == 'd':
-        right = -1
-    elif key == 'a':
-        right = 1
-    elif key == ' ':  # Space for up
-        up = 1
-    elif key == 'z':  # Z for down
-        up = -1
-    elif key == '\x1b':
-        sys.exit()
-    camera.move(forward, right, up)
-    glutPostRedisplay()
-
-def special(key, x, y):
-    # Remove camera.rotate from arrow keys to avoid conflict with mouse look
-    pass
-
-def timer(fps=25):
-    global sim_time
-    update_movement()
-    update_environment(terrain.voxels, property_map, dt=0.05)
-    sim_time += 0.05
-    glutPostRedisplay()
-    glutTimerFunc(int(1000/fps), lambda v=0: timer(fps), 0)
-
-def init():
-    glClearColor(0.8, 0.9, 1.0, 1)
-    glEnable(GL_DEPTH_TEST)
-    glEnable(GL_CULL_FACE)
-    glCullFace(GL_BACK)
-
-def main():
-    glutInit(sys.argv)
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
-    glutInitWindowSize(900, 700)
-    glutCreateWindow(b"Voxel World - PyOpenGL")
-    init()
-    glutDisplayFunc(display)
-    glutReshapeFunc(reshape)
-    glutKeyboardFunc(keyboard_down)
-    glutKeyboardUpFunc(keyboard_up)
-    glutSpecialFunc(special)
-    glutSetCursor(GLUT_CURSOR_NONE)
-    glutPassiveMotionFunc(mouse_look)
-    # Center mouse at start
-    win_w = glutGet(GLUT_WINDOW_WIDTH)
-    win_h = glutGet(GLUT_WINDOW_HEIGHT)
-    glutWarpPointer(win_w // 2, win_h // 2)
-    timer(25)
-    glutMainLoop()
-
-# --- Mouse look state ---
-last_mouse = {'x': None, 'y': None}
-
-# --- Mouse look callback ---
-def mouse_look(x, y):
-    global last_mouse
-    win_w = glutGet(GLUT_WINDOW_WIDTH)
-    win_h = glutGet(GLUT_WINDOW_HEIGHT)
-    cx, cy = win_w // 2, win_h // 2
-    # Only process if window is focused and pointer is at center or moved by user
-    if (x, y) == (cx, cy):
-        return
-    if last_mouse['x'] is None or last_mouse['y'] is None:
-        last_mouse['x'] = cx
-        last_mouse['y'] = cy
-        glutWarpPointer(cx, cy)
-        return
-    dx = x - cx
-    dy = y - cy
-    sensitivity = 0.15
-    camera.rotate(dx * sensitivity, dy * sensitivity)
-    last_mouse['x'] = cx
-    last_mouse['y'] = cy
-    glutWarpPointer(cx, cy)
-    glutPostRedisplay()
-
-# --- Key state tracking ---
-pressed_keys = set()
-
-def keyboard_down(key, x, y):
-    key = key.decode('utf-8').lower()
-    pressed_keys.add(key)
-    update_movement()
-
-def keyboard_up(key, x, y):
-    key = key.decode('utf-8').lower()
-    if key in pressed_keys:
-        pressed_keys.remove(key)
-    update_movement()
-
-def update_movement():
-    forward = right = up = 0
-    if 'w' in pressed_keys:
-        forward += 1
-    if 's' in pressed_keys:
-        forward -= 1
-    if 'a' in pressed_keys:
-        right += 1
-    if 'd' in pressed_keys:
-        right -= 1
-    if ' ' in pressed_keys:
-        up += 1
-    if 'z' in pressed_keys:
-        up -= 1
-    if forward or right or up:
-        camera.move(forward, right, up)
-
 def get_voxel_mass(props, default_density=1600.0):
     """
     Compute the mass of a voxel based on its type and humidity.
@@ -243,11 +22,45 @@ def get_voxel_mass(props, default_density=1600.0):
         mass = default_density
     return mass
 
+
+
+import random
+import copy
+import json
+import os
+from camera import Camera
+from world import Terrain
+from world.utils import clamp_voxel_properties, recalc_voxel_masses
+from processes import update_environment
+from frontend.ui import set_simulation, run_ui
+
+# All frontend/UI, OpenGL, GLUT, camera, and input code has been moved to frontend/ui.py
+# This file now only coordinates simulation setup and launches the UI.
+
+# --- Main script ---
 if __name__ == '__main__':
+    def load_json_data(filename):
+        with open(os.path.join(os.path.dirname(__file__), 'data', filename), 'r') as f:
+            return json.load(f)
+
+    MINERALS = load_json_data('minerals.json')
+    INORGANIC = load_json_data('inorganic_molecules.json')
+    ORGANIC = load_json_data('organic_matter.json')
+
     GRID_SIZE = 10
     VOXEL_COUNT = 1000
     VOXEL_SIZE = 1.0
 
+    # --- Densities and volume ---
+    VOXEL_VOLUME = 1.0  # m^3
+    DENSITY = {
+        'water': 1000.0,   # kg/m^3
+        'soil': 1600.0,    # kg/m^3
+        'rock': 2600.0,    # kg/m^3
+        'organic': 1300.0, # kg/m^3 (example)
+    }
+
+    # Initial world
     terrain = Terrain(GRID_SIZE, VOXEL_COUNT)
     camera = Camera(GRID_SIZE)
 
@@ -320,4 +133,20 @@ if __name__ == '__main__':
         props['mass'] = get_voxel_mass(props)
         property_map[(v.x, v.y, v.z)] = props
 
-    main()
+    # --- Precompute simulation steps ---
+    sim_states = []
+    for step in range(24):
+        terrain_copy = copy.deepcopy(terrain)
+        property_map_copy = copy.deepcopy(property_map)
+        clamp_voxel_properties(property_map_copy, VOXEL_VOLUME, DENSITY)
+        recalc_voxel_masses(property_map_copy, VOXEL_VOLUME, DENSITY)
+        sim_states.append((terrain_copy, property_map_copy, step*3600.0))
+        if step < 23:
+            update_environment(terrain_copy.voxels, property_map_copy, dt=3600.0)
+            clamp_voxel_properties(property_map_copy, VOXEL_VOLUME, DENSITY)
+            recalc_voxel_masses(property_map_copy, VOXEL_VOLUME, DENSITY)
+            terrain = copy.deepcopy(terrain_copy)
+            property_map = copy.deepcopy(property_map_copy)
+
+    set_simulation(sim_states, camera, 24, VOXEL_VOLUME, DENSITY)
+    run_ui()
